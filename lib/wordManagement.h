@@ -13,8 +13,14 @@ typedef struct {
 
 word *newWord(char *text, int count);
 
-void sortByCount(word **word, int n);
+void sortByCount(word wordArr[], int start, int end);
 
 void newWordDatatype(MPI_Datatype *datatype);
 
 word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords);
+
+word *getWordArrayFromTable(GHashTable *hashTable, int wordArrLength);
+
+void updateMasterHashTable(GHashTable *hashTable, word *wordArr, int wordNum);
+
+void printOutputCSV(word *wordArr, int wordArrLength);

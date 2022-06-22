@@ -76,7 +76,7 @@ word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords) {
     char currWord[50], currChar;
     int wordPtr = 0, wordNum = 0;
 
-    GHashTable* hashTable = g_hash_table_new(g_str_hash, g_str_equal);
+    GHashTable *hashTable = g_hash_table_new(g_str_hash, g_str_equal);
     
     for(int i = 0; i < partNum; i++){
         fp = parts[i];
@@ -126,6 +126,34 @@ word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords) {
     return wordArr;
 }
 
+word *getWordArrayFromTable(GHashTable *hashTable, int wordArrLength){
+    gpointer gp;
+    int wordCount;
+    char **gTableArr = (char**) g_hash_table_get_keys_as_array(hashTable, &wordArrLength);
+        
+    word *orderedWordArr = malloc(sizeof(word) * wordArrLength);
+    for(int i = 0; i < wordArrLength; i++){
+        gp = g_hash_table_lookup(hashTable, gTableArr[i]); 
+        wordCount =  GPOINTER_TO_INT(gp);
+        orderedWordArr[i].occurrencies = wordCount;
+        strncpy(orderedWordArr[i].text, gTableArr[i], sizeof(orderedWordArr[i].text));  
+    }
+
+    return orderedWordArr;
+}
+
+void updateMasterHashTable(GHashTable *hashTable, word *wordArr, int wordNum){
+    for(int i = 0; i < wordNum; i++){
+        gpointer gp = g_hash_table_lookup(hashTable, wordArr[i].text);
+        if(gp == NULL){
+            g_hash_table_insert(hashTable, wordArr[i].text, GINT_TO_POINTER(wordArr[i].occurrencies));
+        }
+        else {
+            g_hash_table_insert(hashTable, wordArr[i].text, GINT_TO_POINTER(wordArr[i].occurrencies + GPOINTER_TO_INT(gp)));
+        }
+    }
+}
+
 void sortByCount(word a[], int start, int end){
     int q;
     int elemNum = end - start;
@@ -169,4 +197,12 @@ void merge(word a[], int p, int q, int r, int elemNum) {
 
     for (k=p; k<=r; k++) a[k] = b[k-p];
     return;
+}
+
+void printOutputCSV(word *wordArr, int wordArrLength){
+    FILE *csvFile = fopen ("results.csv" , "w+");
+    fprintf(csvFile, "Word, Occurrencies\n");
+    for(int i = 0; i < wordArrLength; i++){
+        fprintf(csvFile,"%s, %d\n", wordArr[i].text, wordArr[i].occurrencies);
+    }
 }

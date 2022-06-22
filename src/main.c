@@ -39,23 +39,18 @@ int main (int argc, char *argv[]){
         double portion = (allFilesSize / tasks) + 0.0;
         int rest = (int) allFilesSize % tasks;
     
-        //Produzione dei chunk per ogni processo che non sia quello master
-        fileInfo * filePartPtr;
+        fileInfo *filePartPtr;
+        filePart **jobs;
         GList *listPtr = gFileList;
         int foundFiles = g_list_length(gFileList);
-
-        //la size dei chunk per ogni processo può essere al più uguale al numero dei file
-        //File_chunk ** chunks_to_send = malloc(sizeof(File_chunk *) * numtasks -1);
-        filePart **jobs;
         MPI_Alloc_mem(sizeof(filePart*) * tasks, MPI_INFO_NULL , &jobs);
 
         double assignedBytes, bytesToAssign = 0;
         double notAssignedBytes;
-        int currentTask = 0, filePartCounter = 0;
+        int currentTask = 0, filePartCounter = 0, masterFilePartCount = 0;
     
-        //Istanzio array di request e status per l'invio e la ricezione asincrona
-        MPI_Request* reqs;
-        MPI_Alloc_mem(sizeof(MPI_Request) * (tasks - 1), MPI_INFO_NULL , &reqs);
+        MPI_Request *requests;
+        MPI_Alloc_mem(sizeof(MPI_Request) * (tasks - 1), MPI_INFO_NULL , &requests);
 
         for(int i=0; i<foundFiles; i++){
             filePartPtr = (fileInfo*) listPtr->data;
@@ -66,8 +61,9 @@ int main (int argc, char *argv[]){
                 if(bytesToAssign == 0){ //Se non ho altri byte da assegnare...
                     if(filePartCounter != 0){ //... se ho almeno una parte di file che deve essere inviata...
                         if(currentTask != MASTER){ //... e se il processo per cui sto calcolando cosa inviare non è il MASTER, allora invio.
-                            MPI_Isend(jobs[currentTask], filePartCounter, filePartDatatype, currentTask, 0, MPI_COMM_WORLD, &(reqs[currentTask - 1]));
+                            MPI_Isend(jobs[currentTask], filePartCounter, filePartDatatype, currentTask, 0, MPI_COMM_WORLD, &(requests[currentTask - 1]));
                         }
+                        else masterFilePartCount = filePartCounter; //Altrimenti salvo il numero di parti da analizzare
                     }
                     bytesToAssign = portion;
                     currentTask++; 
@@ -101,76 +97,56 @@ int main (int argc, char *argv[]){
                     bytesToAssign = 0;
                 }   
             }
-
             listPtr = listPtr->next;
-
         }
         
         //Ultimo invio
-        MPI_Isend(jobs[currentTask], filePartCounter, filePartDatatype, currentTask, 0, MPI_COMM_WORLD, &(reqs[currentTask]));
+        MPI_Isend(jobs[currentTask], filePartCounter, filePartDatatype, currentTask, 0, MPI_COMM_WORLD, &(requests[currentTask-1]));
 
-        // SONO ARRIVATO QUI... IMPLEMENTARE WORKLOAD DEL MASTER (SALVATO IN jobs[0])
+        //Il MASTER esegue il proprio job
+        int masterCountedWords = 0;
+        filePart *masterFilePart = jobs[MASTER];
+        word *masterWordArr = getWordOccurrencies(masterFilePart, masterFilePartCount, &masterCountedWords);
 
-        MPI_Waitall(tasks - 1, reqs , MPI_STATUSES_IGNORE);
+        MPI_Waitall((tasks - 1), requests , MPI_STATUSES_IGNORE);
+        MPI_Free_mem(requests);
 
-        //Mentre i worker lavorano il master può deallocare tutto ciò che non serve
-        MPI_Free_mem(reqs);
+        MPI_Status recvStatus;
+        int count, wordArrLength;
+        word *wordArr;
+        GHashTable *hashTable = g_hash_table_new(g_str_hash, g_str_equal);
+    
+        for(int i = 0; i < tasks; i++){
+            if(i != MASTER){
+                MPI_Probe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &recvStatus);
+                MPI_Get_count(&recvStatus, wordDatatype, &count);
+                MPI_Alloc_mem(sizeof(word) * count, MPI_INFO_NULL , &wordArr);
+                MPI_Recv(wordArr, count, wordDatatype, recvStatus.MPI_SOURCE, 0, MPI_COMM_WORLD, &recvStatus);
+
+                updateMasterHashTable(hashTable, wordArr, count);
+            }
+            else {
+                updateMasterHashTable(hashTable, masterWordArr, masterCountedWords);
+                MPI_Free_mem(masterWordArr);
+            }
+        }
+
+        word *orderedWordArr = getWordArrayFromTable(hashTable, wordArrLength);    
+        sortByCount(orderedWordArr, 0, wordArrLength);
+        printOutputCSV(orderedWordArr, wordArrLength);
+
         for(int i = 0; i< tasks -1; i++){
             MPI_Free_mem(jobs[i]);
         }
         MPI_Free_mem(jobs);
         freeFileList(gFileList, foundFiles);
 
-        //Ricevere da tutti i figli
-        MPI_Status recvStatus;
-        int words_in_message, length, occ;
-        Word_occurrence * occurrences;
-        GHashTable* hash = g_hash_table_new(g_str_hash, g_str_equal);
-        gpointer lookup;
-    
-        for(int i = 0; i < tasks -1; i++){
-
-            
-            MPI_Probe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &recvStatus);
-            MPI_Get_count(&recvStatus, wordtype, &words_in_message);
-            MPI_Alloc_mem(sizeof(Word_occurrence ) * words_in_message, MPI_INFO_NULL , &occurrences);
-            MPI_Recv(occurrences, words_in_message, wordtype, recvStatus.MPI_SOURCE, 0, MPI_COMM_WORLD, &recvStatus);
-            for(int j=0; j< words_in_message; j++){
-                lookup = g_hash_table_lookup(hash,occurrences[j].word);
-                if(lookup == NULL){
-                    g_hash_table_insert(hash,occurrences[j].word,GINT_TO_POINTER (occurrences[j].num));
-                }
-                else{
-                    g_hash_table_insert(hash,occurrences[j].word,GINT_TO_POINTER (occurrences[j].num + GPOINTER_TO_INT(lookup)));
-                }
-            } 
-        }
-
-        char ** entries = (char **) g_hash_table_get_keys_as_array (hash , &length);
-        FILE *out = fopen ("output.txt" , "w");
-        Word_occurrence * to_order = malloc(sizeof(Word_occurrence) * length);
-        for(int i = 0; i<length; i++){
-
-            lookup = g_hash_table_lookup(hash,entries[i]); 
-            occ =  GPOINTER_TO_INT(lookup);
-            to_order[i].num = occ;
-            strncpy(to_order[i].word, entries[i], sizeof(to_order[i].word));  
-        }
-
-        sort_occurrences(&to_order, length);
-
-        fprintf(out, "\"Lessema\",\"Frequenza\"\n");
-        for(int i = 0; i< length; i++){
-            fprintf(out,"\"%s\",\"%d\"\n", to_order[i].word, to_order[i].num);
-        }
-
-        MPI_Free_mem(occurrences);
-        free(to_order);
-        free(entries);
+        MPI_Free_mem(wordArr);
+        free(orderedWordArr);
     }
     else{
         int partNum = 0, countedWords = 0;
-        filePart *fileList = checkMessage(filePartDatatype, status, &partNum);
+        filePart *fileList = checkMessage(filePartDatatype, &partNum, status);
         word *wordArr = getWordOccurrencies(fileList, partNum, &countedWords);
 
         MPI_Send(wordArr, countedWords, wordDatatype, MASTER, 0, MPI_COMM_WORLD);
