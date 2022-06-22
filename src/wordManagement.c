@@ -1,13 +1,15 @@
 #include "../lib/wordManagement.h"
 
-word *newWord(char *text, int count){
+word *newWord(char *text, int count)
+{
     word *word = malloc(sizeof(word));
     strncpy(word->text, text, 50);
     word->occurrencies = count;
     return word;
 }
 
-void newWordDatatype(MPI_Datatype *datatype){
+void newWordDatatype(MPI_Datatype *datatype)
+{
     MPI_Datatype types[2];
     MPI_Aint displ[2], lowerBound, extent;
     int blocks[2];
@@ -26,50 +28,58 @@ void newWordDatatype(MPI_Datatype *datatype){
     MPI_Type_commit(datatype);
 }
 
-int isWordTerminator(char c){
-    if(c == '\t' || c == '\r' || c == '\n' || c == ' ' || c == EOF) return 1;
+int isWordTerminator(char c)
+{
+    if (c == '\t' || c == '\r' || c == '\n' || c == ' ' || c == EOF)
+        return 1;
     return 0;
 }
 
-void addOccurrency(GHashTable* hashTable, char *word, int *differentWords){
+void addOccurrency(GHashTable *hashTable, char *word, int *differentWords)
+{
     gpointer gp;
     int n;
 
     gp = g_hash_table_lookup(hashTable, word);
 
-    if(gp != NULL) n = GPOINTER_TO_INT(gp) + 1;
-    else{
+    if (gp != NULL)
+        n = GPOINTER_TO_INT(gp) + 1;
+    else
+    {
         n = 1;
         *differentWords += 1;
     }
     g_hash_table_insert(hashTable, word, GINT_TO_POINTER(n));
 }
 
-word *createArrayFromTable(GHashTable* hashTable){
+word *createArrayFromTable(GHashTable *hashTable)
+{
     gpointer gp;
     word *wordArr;
     int keyNum, occurrencies;
-    char *currWord, **keys = (char**) g_hash_table_get_keys_as_array(hashTable, &keyNum);
-    
-    MPI_Alloc_mem(sizeof(word) * keyNum, MPI_INFO_NULL , &wordArr);
+    char *currWord, **keys = (char **)g_hash_table_get_keys_as_array(hashTable, &keyNum);
 
-    for (int i = 0; i < keyNum; i++){
-        currWord = keys[i]; 
+    MPI_Alloc_mem(sizeof(word) * keyNum, MPI_INFO_NULL, &wordArr);
+
+    for (int i = 0; i < keyNum; i++)
+    {
+        currWord = keys[i];
         strncpy(wordArr[i].text, currWord, 50);
 
-        gp = g_hash_table_lookup(hashTable, currWord); 
-        occurrencies =  GPOINTER_TO_INT(gp);
+        gp = g_hash_table_lookup(hashTable, currWord);
+        occurrencies = GPOINTER_TO_INT(gp);
         wordArr[i].occurrencies = occurrencies;
 
         free(currWord);
     }
     free(keys);
     g_hash_table_destroy(hashTable);
- 
+
     return wordArr;
 }
 
-word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords) {
+word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords)
+{
     FILE *file;
     filePart fp;
     word *wordArr;
@@ -77,132 +87,159 @@ word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords) {
     int wordPtr = 0, wordNum = 0;
 
     GHashTable *hashTable = g_hash_table_new(g_str_hash, g_str_equal);
-    
-    for(int i = 0; i < partNum; i++){
-        fp = parts[i];
-        file = fopen(fp.filePath , "r");
-        fseek(file, fp.startPoint , SEEK_CUR);
 
-        if(ftell(file) != 0){ //Se non è l'inizio del file...
-            fseek(file,  -1 , SEEK_CUR);
+    for (int i = 0; i < partNum; i++)
+    {
+        fp = parts[i];
+        file = fopen(fp.filePath, "r");
+        fseek(file, fp.startPoint, SEEK_CUR);
+
+        if (ftell(file) != 0)
+        { // Se non è l'inizio del file...
+            fseek(file, -1, SEEK_CUR);
             currChar = fgetc(file);
-            if(!isWordTerminator(currChar)){ //... e se il carattere che precede l'inizio della porzione non è un terminatore...
-                while (!isWordTerminator(currChar)){
-                    fseek(file,  -1 , SEEK_CUR); //... leggo all'indietro fino al primo terminatore.
+            if (!isWordTerminator(currChar))
+            { //... e se il carattere che precede l'inizio della porzione non è un terminatore...
+                while (!isWordTerminator(currChar))
+                {
+                    fseek(file, -1, SEEK_CUR); //... leggo all'indietro fino al primo terminatore.
                     currChar = fgetc(file);
                 }
             }
         }
-        
-        int prevCharIsWordTerminator = 0;  
-        while(ftell(file) < (fp.endPoint))
+
+        int prevCharIsWordTerminator = 0;
+        while (ftell(file) < (fp.endPoint))
         {
             currWord[wordPtr] = fgetc(file);
-            
-            if((isalpha(currWord[wordPtr]) || isdigit(currWord[wordPtr])) && !prevCharIsWordTerminator){
-                wordPtr++;  
-            } 
-            else if(isWordTerminator(currWord[wordPtr]) && !prevCharIsWordTerminator) {
+
+            if ((isalpha(currWord[wordPtr]) || isdigit(currWord[wordPtr])) && !prevCharIsWordTerminator)
+            {
+                wordPtr++;
+            }
+            else if (isWordTerminator(currWord[wordPtr]) && !prevCharIsWordTerminator)
+            {
                 currWord[wordPtr] = '\0';
 
-                for(int n = 0; currWord[n]; n++){
+                for (int n = 0; currWord[n]; n++)
+                {
                     currWord[n] = tolower(currWord[n]);
                 }
-                
-                addOccurrency(hashTable , currWord, &wordNum);
+
+                addOccurrency(hashTable, currWord, &wordNum);
                 wordPtr = 0;
                 prevCharIsWordTerminator = 1;
             }
-            else if(isWordTerminator(currWord[wordPtr]) && prevCharIsWordTerminator) {} //Ignoro i doppi terminatori
-            else if((isalpha(currWord[wordPtr]) || isdigit(currWord[wordPtr])) && prevCharIsWordTerminator) {
+            else if (isWordTerminator(currWord[wordPtr]) && prevCharIsWordTerminator)
+            {
+            } // Ignoro i doppi terminatori
+            else if ((isalpha(currWord[wordPtr]) || isdigit(currWord[wordPtr])) && prevCharIsWordTerminator)
+            {
                 wordPtr++;
                 prevCharIsWordTerminator = 0;
             }
         }
     }
     wordArr = createArrayFromTable(hashTable);
-    *countedWords = wordNum; 
+    *countedWords = wordNum;
 
     return wordArr;
 }
 
-word *getWordArrayFromTable(GHashTable *hashTable, int wordArrLength){
+word *getWordArrayFromTable(GHashTable *hashTable, int wordArrLength)
+{
     gpointer gp;
     int wordCount;
-    char **gTableArr = (char**) g_hash_table_get_keys_as_array(hashTable, &wordArrLength);
-        
-    word *orderedWordArr = malloc(sizeof(word) * wordArrLength);
-    for(int i = 0; i < wordArrLength; i++){
-        gp = g_hash_table_lookup(hashTable, gTableArr[i]); 
-        wordCount =  GPOINTER_TO_INT(gp);
-        orderedWordArr[i].occurrencies = wordCount;
-        strncpy(orderedWordArr[i].text, gTableArr[i], sizeof(orderedWordArr[i].text));  
-    }
+    char **gTableArr = (char **)g_hash_table_get_keys_as_array(hashTable, &wordArrLength);
 
+    word *orderedWordArr = malloc(sizeof(word) * wordArrLength);
+    for (int i = 0; i < wordArrLength; i++)
+    {
+        gp = g_hash_table_lookup(hashTable, gTableArr[i]);
+        wordCount = GPOINTER_TO_INT(gp);
+        orderedWordArr[i].occurrencies = wordCount;
+        strncpy(orderedWordArr[i].text, gTableArr[i], sizeof(orderedWordArr[i].text));
+    }
     return orderedWordArr;
 }
 
-void updateMasterHashTable(GHashTable *hashTable, word *wordArr, int wordNum){
-    for(int i = 0; i < wordNum; i++){
+void updateMasterHashTable(GHashTable *hashTable, word *wordArr, int wordNum)
+{
+    for (int i = 0; i < wordNum; i++)
+    {
         gpointer gp = g_hash_table_lookup(hashTable, wordArr[i].text);
-        if(gp == NULL){
+        if (gp == NULL)
+        {
             g_hash_table_insert(hashTable, wordArr[i].text, GINT_TO_POINTER(wordArr[i].occurrencies));
         }
-        else {
+        else
+        {
             g_hash_table_insert(hashTable, wordArr[i].text, GINT_TO_POINTER(wordArr[i].occurrencies + GPOINTER_TO_INT(gp)));
         }
     }
 }
 
-void merge(word a[], int p, int q, int r, int elemNum) {
-    int i, j, k=0;
+void merge(word a[], int p, int q, int r, int elemNum)
+{
+    int i, j, k = 0;
     word b[elemNum];
     i = p;
-    j = q+1;
+    j = q + 1;
 
-    while (i<=q && j<=r) {
-        if (a[i].occurrencies < a[j].occurrencies) {
+    while (i <= q && j <= r)
+    {
+        if (a[i].occurrencies < a[j].occurrencies)
+        {
             b[k] = a[i];
             i++;
-        } else {
+        }
+        else
+        {
             b[k] = a[j];
             j++;
         }
         k++;
     }
 
-    while (i <= q) {
+    while (i <= q)
+    {
         b[k] = a[i];
         i++;
         k++;
     }
 
-    while (j <= r) {
+    while (j <= r)
+    {
         b[k] = a[j];
         j++;
         k++;
     }
 
-    for (k=p; k<=r; k++) a[k] = b[k-p];
+    for (k = p; k <= r; k++)
+        a[k] = b[k - p];
     return;
 }
 
-void sortByCount(word a[], int start, int end){
+void sortByCount(word a[], int start, int end)
+{
     int q;
     int elemNum = end - start;
-    if (start < end) {
-        q = (start + end)/2;
+    if (start < end)
+    {
+        q = (start + end) / 2;
         sortByCount(a, start, q);
-        sortByCount(a, q+1, end);
+        sortByCount(a, q + 1, end);
         merge(a, start, q, end, elemNum);
     }
     return;
 }
 
-void printOutputCSV(word *wordArr, int wordArrLength){
-    FILE *csvFile = fopen ("results.csv" , "w+");
+void printOutputCSV(word *wordArr, int wordArrLength)
+{
+    FILE *csvFile = fopen("results.csv", "w+");
     fprintf(csvFile, "Word, Occurrencies\n");
-    for(int i = 0; i < wordArrLength; i++){
-        fprintf(csvFile,"%s, %d\n", wordArr[i].text, wordArr[i].occurrencies);
+    for (int i = 0; i < wordArrLength; i++)
+    {
+        fprintf(csvFile, "%s, %d\n", wordArr[i].text, wordArr[i].occurrencies);
     }
 }

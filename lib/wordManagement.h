@@ -6,7 +6,8 @@
 #include "fileManagement.h"
 #include "mpi.h"
 
-typedef struct {
+typedef struct
+{
     char text[50];
     int occurrencies;
 } word;
