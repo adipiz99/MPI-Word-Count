@@ -1,14 +1,18 @@
-all : main.o fileManagement.o wordManagement.o
-	mpicc main.o fileManagement.o wordManagement.o -o wordCount.out
+mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
+mkfile_dir := $(dir $(mkfile_path))
+Glib-dir := $(shell pkg-config --cflags --libs glib-2.0)
 
-main.o :
-	mpicc -c main.c 
+wordCount: wordManagement.o fileManagement.o main.o
+	mpicc $(Glib-dir) $(mkfile_dir)src/main.o $(mkfile_dir)src/fileManagement.o $(mkfile_dir)src/wordManagement.o -o $(mkfile_dir)src/wordCount.out
+
+main.o:
+	mpicc -c $(Glib-dir) $(mkfile_dir)src/main.c 
 	
 fileManagement.o :
-	mpicc -c fileManagement.c
+	mpicc -c $(Glib-dir) $(mkfile_dir)src/fileManagement.c
 
 wordManagement.o:
-	mpicc -c wordManagement.c
+	mpicc -c $(Glib-dir) $(mkfile_dir)src/wordManagement.c
 	
 clean: 
-	rm -f wordCount.out main.o fileManagement.o wordManagement.o 
+	rm -f $(mkfile_dir)src/wordCount.out $(mkfile_dir)src/main.o $(mkfile_dir)src/fileManagement.o $(mkfile_dir)src/wordManagement.o 

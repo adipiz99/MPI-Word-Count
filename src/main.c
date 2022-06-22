@@ -4,8 +4,8 @@
 #include <glib.h>
 #include <unistd.h>
 #include "mpi.h"
-#include "fileManagement.h"
-#include "wordManagement.h"
+#include "../lib/fileManagement.h"
+#include "../lib/wordManagement.h"
 
 #define MASTER 0
 

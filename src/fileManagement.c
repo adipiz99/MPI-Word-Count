@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
-#include "fileManagement.h"
+#include "../lib/fileManagement.h"
 
 filePart *newFilePart(double start_offset , double end_offset, char *path){
 

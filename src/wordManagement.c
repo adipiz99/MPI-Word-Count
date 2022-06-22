@@ -1,9 +1,9 @@
-#include "wordManagement.h"
+#include "../lib/wordManagement.h"
 
 word *newWord(char *text, int count){
     word *word = malloc(sizeof(word));
-    strncpy(word->text, word, 50);
-    word->count = count;
+    strncpy(word->text, text, 50);
+    word->occurrencies = count;
     return word;
 }
 

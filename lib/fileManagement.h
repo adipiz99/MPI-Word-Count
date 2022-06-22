@@ -1,5 +1,5 @@
-#include"mpi.h"
-#include"glib.h"
+#include "mpi.h"
+#include "glib.h"
 #include <stdlib.h>
 #include <string.h>
 
