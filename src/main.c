@@ -15,13 +15,11 @@ int main (int argc, char *argv[]){
     MPI_Status status;
     MPI_Comm_size(MPI_COMM_WORLD, &tasks);
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-
-    //Creazione del datatype per il chunk 
     MPI_Datatype filePartDatatype, wordDatatype;
     newFilePartDatatype(&filePartDatatype);
     newWordDatatype(&wordDatatype);
 
-    if(argc<2){
+    if(argc < 2){
         printf("Usage: ./%s \"/path/to/folder\"", argv[0]);
         MPI_Finalize();
         return 0;
