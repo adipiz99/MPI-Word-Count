@@ -17,13 +17,11 @@ typedef struct filePart {
     double endPoint;
 } filePart;
 
-filePart *newFilePart(double start_offset , double end_offset, char *path);
-
 void newFilePartDatatype(MPI_Datatype *datatype);
 
 filePart *checkMessage(MPI_Datatype datatype, int  *partNum, MPI_Status status);
 
-filePart *getInfo(char *path);
+fileInfo *getInfo(char *path);
 
 GList *createFileList(char *filePaths, double *fileSizes);
 

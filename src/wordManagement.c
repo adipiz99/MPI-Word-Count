@@ -154,18 +154,6 @@ void updateMasterHashTable(GHashTable *hashTable, word *wordArr, int wordNum){
     }
 }
 
-void sortByCount(word a[], int start, int end){
-    int q;
-    int elemNum = end - start;
-    if (start < end) {
-        q = (start + end)/2;
-        sortByCount(a, start, q);
-        sortByCount(a, q+1, end);
-        merge(a, start, q, end, elemNum);
-    }
-    return;
-}
-
 void merge(word a[], int p, int q, int r, int elemNum) {
     int i, j, k=0;
     word b[elemNum];
@@ -196,6 +184,18 @@ void merge(word a[], int p, int q, int r, int elemNum) {
     }
 
     for (k=p; k<=r; k++) a[k] = b[k-p];
+    return;
+}
+
+void sortByCount(word a[], int start, int end){
+    int q;
+    int elemNum = end - start;
+    if (start < end) {
+        q = (start + end)/2;
+        sortByCount(a, start, q);
+        sortByCount(a, q+1, end);
+        merge(a, start, q, end, elemNum);
+    }
     return;
 }
 

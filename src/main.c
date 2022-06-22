@@ -4,7 +4,7 @@
 #include <glib.h>
 #include <unistd.h>
 #include "mpi.h"
-#include "../lib/fileManagement.h"
+//#include "../lib/fileManagement.h"
 #include "../lib/wordManagement.h"
 
 #define MASTER 0
@@ -72,24 +72,19 @@ int main (int argc, char *argv[]){
                 //All'ultimo do porzione e resto
                 if(currentTask == (tasks - 1) && rest > 0) bytesToAssign = portion + rest;
 
-                
                 if(notAssignedBytes <= bytesToAssign){
-                    jobs[currentTask][filePartCounter].start_offset = assignedBytes;
-                    jobs[currentTask][filePartCounter].end_offset = assignedBytes + notAssignedBytes;
-
-                    strncpy(jobs[currentTask][filePartCounter].path , filePartPtr->path, 300);
-
                     filePartCounter++;
                     bytesToAssign -= notAssignedBytes;
+                    strncpy(jobs[currentTask][filePartCounter].filePath , filePartPtr->filePath, 300);
+                    jobs[currentTask][filePartCounter].startPoint = assignedBytes;
+                    jobs[currentTask][filePartCounter].endPoint = assignedBytes + notAssignedBytes;
                     notAssignedBytes = 0;
                 }
                 else {
-                    jobs[currentTask][filePartCounter].start_offset = assignedBytes;
-                    jobs[currentTask][filePartCounter].end_offset = assignedBytes + notAssignedBytes;
-
-                    strncpy(jobs[currentTask][filePartCounter].path , filePartPtr->path, 300);
-
                     filePartCounter++;
+                    strncpy(jobs[currentTask][filePartCounter].filePath , filePartPtr->filePath, 300);
+                    jobs[currentTask][filePartCounter].startPoint = assignedBytes;
+                    jobs[currentTask][filePartCounter].endPoint = assignedBytes + notAssignedBytes;
                     assignedBytes += bytesToAssign;
                     notAssignedBytes -= bytesToAssign;
                     bytesToAssign = 0;

@@ -7,18 +7,6 @@
 #include <errno.h>
 #include "../lib/fileManagement.h"
 
-filePart *newFilePart(double start_offset , double end_offset, char *path){
-
-    filePart * chunk = malloc(sizeof(filePart));
-
-    chunk->start_offset = start_offset;
-    chunk->end_offset = end_offset;
-    strncpy(chunk->path, path, 260);
-    
-    return chunk;
-
-}
-
 void newFilePartDatatype(MPI_Datatype *datatype){
     MPI_Datatype types[2];
     MPI_Aint displ[2], lowerBound, extent;
@@ -49,14 +37,14 @@ filePart *checkMessage(MPI_Datatype datatype, int  *partNum, MPI_Status status){
     return parts;
 }
 
-filePart *getInfo(char *path){
-    struct stat stat;
+fileInfo *getInfo(char *path){
+    struct stat filestat;
     fileInfo *info = (fileInfo*) malloc(sizeof(fileInfo));
 
-    if(stat(path, &stat) != -1){
+    if(stat(path, &filestat) != -1){
         info->filePath = malloc(sizeof(char) * strlen(path) + 1);
         strncpy(info->filePath ,path , strlen(path)+1);
-        info->fileSize = stat.st_size;
+        info->fileSize = filestat.st_size;
         return info;
     }
     return NULL;
@@ -83,7 +71,7 @@ GList *createFileList(char *filePaths, double *fileSizes){
                 fileList = g_list_append(fileList, info);
             }
         }
-        closedir(d);   
+        closedir(dir);   
     }
     else if (ENOENT == errno) return NULL;
     return fileList;
@@ -94,7 +82,7 @@ void freeFileList(GList *list, int elemNum){
     GList *temp = list;
     for(int i=0; i<elemNum; i++){
             fileInfo *toFree = temp->data;
-            free(toFree->path);
+            free(toFree->filePath);
             free(temp->data);
             temp = temp->next;
     }
