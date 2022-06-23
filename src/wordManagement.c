@@ -98,6 +98,7 @@ word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords)
         { // Se non è l'inizio del file...
             fseek(file, -1, SEEK_CUR);
             currChar = fgetc(file);
+
             if (!isWordTerminator(currChar))
             { //... e se il carattere che precede l'inizio della porzione non è un terminatore...
                 while (!isWordTerminator(currChar))
@@ -139,7 +140,9 @@ word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords)
                 prevCharIsWordTerminator = 0;
             }
         }
+        printf("ftell: %ld ep: %f\n", ftell(file), fp.endPoint);fflush(stdout);
     }
+    printf("HOHOHO");
     wordArr = createArrayFromTable(hashTable);
     *countedWords = wordNum;
 

@@ -49,9 +49,9 @@ int main(int argc, char *argv[])
         printf("[MASTER] La cartella esiste \n");
         fflush(stdout);
 
-        double portion = (allFilesSize / tasks) + 0.0;
-        int rest = (int)allFilesSize % tasks;
-        printf("Resto %d\nPorzione %f\n", rest, portion);
+        int portion = allFilesSize / tasks;
+        int rest = (int) allFilesSize % tasks;
+        printf("Resto %d\nPorzione %d\n", rest, portion);
 
         fileInfo *filePartPtr;
         filePart **jobs;
@@ -97,7 +97,6 @@ int main(int argc, char *argv[])
                     for (int k = 0; k < filePartCounter; k++)
                     {
                         inf = jobs[currentTask][k];
-                        printf("[INFO] Task: %d \n\tFilepath: %s\n\tstartPoint: %2f\n\tendPoint: %2f\n", currentTask, inf.filePath, inf.startPoint, inf.endPoint);
                     }
                     currentTask++;
                     MPI_Alloc_mem(sizeof(filePart) * foundFiles, MPI_INFO_NULL, &(jobs[currentTask]));
@@ -105,15 +104,15 @@ int main(int argc, char *argv[])
                 }
 
                 // Al MASTER do porzione e resto
-                if (currentTask == MASTER && rest > 0)
+                if (currentTask == MASTER && bytesToAssign == portion && rest > 0)
                     bytesToAssign = portion + rest;
-                printf("[MASTER] Portion task %d: %f\n", currentTask, bytesToAssign);
 
-                if (notAssignedBytes <= bytesToAssign)
+                if (bytesToAssign >= notAssignedBytes)
                 {
                     strncpy(jobs[currentTask][filePartCounter].filePath, filePartPtr->filePath, 300);
                     jobs[currentTask][filePartCounter].startPoint = assignedBytes;
                     jobs[currentTask][filePartCounter].endPoint = assignedBytes + notAssignedBytes;
+                    assignedBytes += notAssignedBytes;
                     bytesToAssign -= notAssignedBytes;
                     notAssignedBytes = 0;
                     filePartCounter++;
@@ -134,10 +133,7 @@ int main(int argc, char *argv[])
         printf("[MASTER] Ultimo invio a %d \n", currentTask);
         filePart inf;
         for (int k = 0; k < filePartCounter; k++)
-        {
             inf = jobs[currentTask][k];
-            printf("[INFO] Task: %d \n\tFilepath: %s\n\tstartPoint: %2f\n\tendPoint: %2f\n", currentTask, inf.filePath, inf.startPoint, inf.endPoint);
-        }
         // Ultimo invio
         MPI_Isend(jobs[currentTask], filePartCounter, filePartDatatype, currentTask, 0, MPI_COMM_WORLD, &(requests[currentTask - 1]));
 
@@ -193,13 +189,13 @@ int main(int argc, char *argv[])
     }
     else
     {
-        int partNum = 0, countedWords = 0;
+        /*int partNum = 0, countedWords = 0;
         filePart *fileList = checkMessage(filePartDatatype, &partNum, status);
         word *wordArr = getWordOccurrencies(fileList, partNum, &countedWords);
 
         MPI_Send(wordArr, countedWords, wordDatatype, MASTER, 0, MPI_COMM_WORLD);
         MPI_Free_mem(fileList);
-        MPI_Free_mem(wordArr);
+        MPI_Free_mem(wordArr);*/
     }
 
     MPI_Type_free(&filePartDatatype);
