@@ -14,14 +14,14 @@ void newFilePartDatatype(MPI_Datatype *datatype)
     int blocks[2];
 
     displ[0] = 0;
-    blocks[0] = 300;
-    types[0] = MPI_CHAR;
+    blocks[1] = 300;
+    types[1] = MPI_CHAR;
 
-    MPI_Type_get_extent(MPI_CHAR, &lowerBound, &extent);
+    MPI_Type_get_extent(MPI_DOUBLE, &lowerBound, &extent);
 
-    displ[1] = 300 * extent;
-    blocks[1] = 2;
-    types[1] = MPI_DOUBLE;
+    displ[1] = 2 * extent; //300 * extent;
+    blocks[0] = 2;
+    types[0] = MPI_DOUBLE;
 
     MPI_Type_create_struct(2, blocks, displ, types, datatype);
     MPI_Type_commit(datatype);

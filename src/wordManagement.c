@@ -15,14 +15,14 @@ void newWordDatatype(MPI_Datatype *datatype)
     int blocks[2];
 
     displ[0] = 0;
-    blocks[0] = 50;
-    types[0] = MPI_CHAR;
+    blocks[1] = 50;
+    types[1] = MPI_CHAR;
 
-    MPI_Type_get_extent(MPI_CHAR, &lowerBound, &extent);
+    MPI_Type_get_extent(MPI_INT, &lowerBound, &extent);
 
-    displ[1] = 50 * extent;
-    blocks[1] = 1;
-    types[1] = MPI_INT;
+    displ[1] = extent;
+    blocks[0] = 1;
+    types[0] = MPI_INT;
 
     MPI_Type_create_struct(2, blocks, displ, types, datatype);
     MPI_Type_commit(datatype);
@@ -43,13 +43,18 @@ void addOccurrency(GHashTable *hashTable, char *word, int *differentWords)
     gp = g_hash_table_lookup(hashTable, word);
 
     if (gp != NULL)
+    {
         n = GPOINTER_TO_INT(gp) + 1;
+    }
     else
     {
         n = 1;
         *differentWords += 1;
     }
+    
     g_hash_table_insert(hashTable, word, GINT_TO_POINTER(n));
+
+    //printf("Occurrency added: %s, occ %d\n", word, n);
 }
 
 word *createArrayFromTable(GHashTable *hashTable)
@@ -58,22 +63,21 @@ word *createArrayFromTable(GHashTable *hashTable)
     word *wordArr;
     int keyNum, occurrencies;
     char *currWord, **keys = (char **)g_hash_table_get_keys_as_array(hashTable, &keyNum);
+    // for(int i = 0; i < keyNum; i++) printf("Key %s\n", keys[i]);
 
     MPI_Alloc_mem(sizeof(word) * keyNum, MPI_INFO_NULL, &wordArr);
 
     for (int i = 0; i < keyNum; i++)
     {
         currWord = keys[i];
-        strncpy(wordArr[i].text, currWord, 50);
-
+        printf("Curr: %s\n", currWord); fflush(stdout);
         gp = g_hash_table_lookup(hashTable, currWord);
         occurrencies = GPOINTER_TO_INT(gp);
+        strncpy(wordArr[i].text, currWord, 50);  
         wordArr[i].occurrencies = occurrencies;
-
-        free(currWord);
     }
-    free(keys);
     g_hash_table_destroy(hashTable);
+    free(keys);
 
     return wordArr;
 }
@@ -103,7 +107,7 @@ word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords)
             { //... e se il carattere che precede l'inizio della porzione non è un terminatore...
                 while (!isWordTerminator(currChar))
                 {
-                    fseek(file, -1, SEEK_CUR); //... leggo all'indietro fino al primo terminatore.
+                    fseek(file, -2, SEEK_CUR); //... leggo all'indietro fino al primo terminatore.
                     currChar = fgetc(file);
                 }
             }
@@ -140,9 +144,7 @@ word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords)
                 prevCharIsWordTerminator = 0;
             }
         }
-        printf("ftell: %ld ep: %f\n", ftell(file), fp.endPoint);fflush(stdout);
     }
-    printf("HOHOHO");
     wordArr = createArrayFromTable(hashTable);
     *countedWords = wordNum;
 
@@ -155,12 +157,16 @@ word *getWordArrayFromTable(GHashTable *hashTable, int wordArrLength)
     int wordCount;
     char **gTableArr = (char **)g_hash_table_get_keys_as_array(hashTable, &wordArrLength);
 
+    printf("wordARRLENGGT %d\n", wordArrLength);
+
     word *orderedWordArr = malloc(sizeof(word) * wordArrLength);
     for (int i = 0; i < wordArrLength; i++)
     {
         gp = g_hash_table_lookup(hashTable, gTableArr[i]);
         wordCount = GPOINTER_TO_INT(gp);
         orderedWordArr[i].occurrencies = wordCount;
+        printf("Copio %s\n", gTableArr[i]);
+        fflush(stdout);
         strncpy(orderedWordArr[i].text, gTableArr[i], sizeof(orderedWordArr[i].text));
     }
     return orderedWordArr;
@@ -182,7 +188,7 @@ void updateMasterHashTable(GHashTable *hashTable, word *wordArr, int wordNum)
     }
 }
 
-void merge(word a[], int p, int q, int r, int elemNum)
+/*void merge(word a[], int p, int q, int r, int elemNum)
 {
     int i, j, k = 0;
     word b[elemNum];
@@ -221,20 +227,75 @@ void merge(word a[], int p, int q, int r, int elemNum)
     for (k = p; k <= r; k++)
         a[k] = b[k - p];
     return;
+} */
+
+void merge(word arr[], int l, int m, int r)
+{
+    int i, j, k;
+    int n1 = m - l + 1;
+    int n2 = r - m;
+
+    /* create temp arrays */
+    word L[n1], R[n2];
+
+    /* Copy data to temp arrays L[] and R[] */
+    for (i = 0; i < n1; i++)
+        L[i] = arr[l + i];
+    for (j = 0; j < n2; j++)
+        R[j] = arr[m + 1 + j];
+
+    /* Merge the temp arrays back into arr[l..r]*/
+    i = 0; // Initial index of first subarray
+    j = 0; // Initial index of second subarray
+    k = l; // Initial index of merged subarray
+    while (i < n1 && j < n2)
+    {
+        if (L[i].occurrencies <= R[j].occurrencies)
+        {
+            arr[k] = L[i];
+            i++;
+        }
+        else
+        {
+            arr[k] = R[j];
+            j++;
+        }
+        k++;
+    }
+
+    /* Copy the remaining elements of L[], if there
+    are any */
+    while (i < n1)
+    {
+        arr[k] = L[i];
+        i++;
+        k++;
+    }
+
+    /* Copy the remaining elements of R[], if there
+    are any */
+    while (j < n2)
+    {
+        arr[k] = R[j];
+        j++;
+        k++;
+    }
 }
 
-void sortByCount(word a[], int start, int end)
+void sortByCount(word arr[], int l, int r)
 {
-    int q;
-    int elemNum = end - start;
-    if (start < end)
+    if (l < r)
     {
-        q = (start + end) / 2;
-        sortByCount(a, start, q);
-        sortByCount(a, q + 1, end);
-        merge(a, start, q, end, elemNum);
+        // Same as (l+r)/2, but avoids overflow for
+        // large l and h
+        int m = l + (r - l) / 2;
+
+        // Sort first and second halves
+        sortByCount(arr, l, m);
+        sortByCount(arr, m + 1, r);
+
+        merge(arr, l, m, r);
     }
-    return;
 }
 
 void printOutputCSV(word *wordArr, int wordArrLength)
@@ -243,6 +304,7 @@ void printOutputCSV(word *wordArr, int wordArrLength)
     fprintf(csvFile, "Word, Occurrencies\n");
     for (int i = 0; i < wordArrLength; i++)
     {
+        // printf("%s, %d\n", wordArr[i].text, wordArr[i].occurrencies);fflush(stdout);
         fprintf(csvFile, "%s, %d\n", wordArr[i].text, wordArr[i].occurrencies);
     }
 }

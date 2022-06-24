@@ -6,15 +6,15 @@
 #include "fileManagement.h"
 #include "mpi.h"
 
-typedef struct
+typedef struct word
 {
-    char text[50];
     int occurrencies;
+    char text[50];
 } word;
 
 word *newWord(char *text, int count);
 
-void sortByCount(word wordArr[], int start, int end);
+void sortByCount(word arr[], int l, int r);
 
 void newWordDatatype(MPI_Datatype *datatype);
 

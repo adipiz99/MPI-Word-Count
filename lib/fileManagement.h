@@ -14,9 +14,9 @@ typedef struct fileInfo
 
 typedef struct filePart
 {
-    char filePath[300];
     double startPoint;
     double endPoint;
+    char filePath[300];
 } filePart;
 
 void newFilePartDatatype(MPI_Datatype *datatype);
