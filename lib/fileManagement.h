@@ -1,30 +1,24 @@
 #include "mpi.h"
-#include "glib.h"
+#include "linkedFileList.h"
 #include <stdlib.h>
 #include <string.h>
 
 #define MAX_PACK_SIZE 8192
 #define MASTER 0
 
-typedef struct fileInfo
-{
-    char *filePath;
-    double fileSize;
-} fileInfo;
-
 typedef struct filePart
 {
     double startPoint;
     double endPoint;
-    char filePath[300];
+    char *filePath;
 } filePart;
 
 void newFilePartDatatype(MPI_Datatype *datatype);
 
 filePart *checkMessage(MPI_Datatype datatype, int *partNum, MPI_Status status);
 
-fileInfo *getInfo(char *path);
+fileNode *createFileNode(char *path);
 
-GList *createFileList(char *filePaths, double *fileSizes);
+linkedFileList *createFileList(char *filePaths, double *allFileSize);
 
-void freeFileList(GList *list, int elemNum);
+void freeFileList(linkedFileList *list);

@@ -35,51 +35,12 @@ int isWordTerminator(char c)
     return 0;
 }
 
-void addOccurrency(GHashTable *hashTable, char *word, int *differentWords)
+void addOccurrency(linkedList *list, char *word, int *differentWords)
 {
-    gpointer gp;
-    int n;
+    int opStatus = updateListEntry(list, word, 1);
 
-    gp = g_hash_table_lookup(hashTable, word);
-
-    if (gp != NULL)
-    {
-        n = GPOINTER_TO_INT(gp) + 1;
-    }
-    else
-    {
-        n = 1;
+    if (opStatus == 1) // Nuovo nodo
         *differentWords += 1;
-    }
-    
-    g_hash_table_insert(hashTable, word, GINT_TO_POINTER(n));
-
-    //printf("Occurrency added: %s, occ %d\n", word, n);
-}
-
-word *createArrayFromTable(GHashTable *hashTable)
-{
-    gpointer gp;
-    word *wordArr;
-    int keyNum, occurrencies;
-    char *currWord, **keys = (char **)g_hash_table_get_keys_as_array(hashTable, &keyNum);
-    // for(int i = 0; i < keyNum; i++) printf("Key %s\n", keys[i]);
-
-    MPI_Alloc_mem(sizeof(word) * keyNum, MPI_INFO_NULL, &wordArr);
-
-    for (int i = 0; i < keyNum; i++)
-    {
-        currWord = keys[i];
-        printf("Curr: %s\n", currWord); fflush(stdout);
-        gp = g_hash_table_lookup(hashTable, currWord);
-        occurrencies = GPOINTER_TO_INT(gp);
-        strncpy(wordArr[i].text, currWord, 50);  
-        wordArr[i].occurrencies = occurrencies;
-    }
-    g_hash_table_destroy(hashTable);
-    free(keys);
-
-    return wordArr;
 }
 
 word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords)
@@ -88,9 +49,9 @@ word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords)
     filePart fp;
     word *wordArr;
     char currWord[50], currChar;
-    int wordPtr = 0, wordNum = 0;
+    int wordPtr = 0, wordCount = 0;
 
-    GHashTable *hashTable = g_hash_table_new(g_str_hash, g_str_equal);
+    linkedList *list = newList();
 
     for (int i = 0; i < partNum; i++)
     {
@@ -131,7 +92,7 @@ word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords)
                     currWord[n] = tolower(currWord[n]);
                 }
 
-                addOccurrency(hashTable, currWord, &wordNum);
+                addOccurrency(list, currWord, &wordCount);
                 wordPtr = 0;
                 prevCharIsWordTerminator = 1;
             }
@@ -145,89 +106,39 @@ word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords)
             }
         }
     }
-    wordArr = createArrayFromTable(hashTable);
-    *countedWords = wordNum;
+    wordArr = getWordArrayFromList(list, countedWords);
+    return wordArr;
+}
+
+word *getWordArrayFromList(linkedList *list, int *wordArrLength)
+{
+    word *wordArr;
+    MPI_Alloc_mem(sizeof(word) * list->size, MPI_INFO_NULL, &wordArr);
+
+    *wordArrLength = list->size;
+
+    int i = 0;
+    for (node *n = list->head; n != NULL; n = n->next, i++)
+    {
+        strncpy(wordArr[i].text, n->text, 50);
+        wordArr[i].occurrencies = n->occurrencies;
+    }
+
+    while (list->head != NULL)
+    {
+        removeListHead(list);
+    }
 
     return wordArr;
 }
 
-word *getWordArrayFromTable(GHashTable *hashTable, int wordArrLength)
-{
-    gpointer gp;
-    int wordCount;
-    char **gTableArr = (char **)g_hash_table_get_keys_as_array(hashTable, &wordArrLength);
-
-    printf("wordARRLENGGT %d\n", wordArrLength);
-
-    word *orderedWordArr = malloc(sizeof(word) * wordArrLength);
-    for (int i = 0; i < wordArrLength; i++)
-    {
-        gp = g_hash_table_lookup(hashTable, gTableArr[i]);
-        wordCount = GPOINTER_TO_INT(gp);
-        orderedWordArr[i].occurrencies = wordCount;
-        printf("Copio %s\n", gTableArr[i]);
-        fflush(stdout);
-        strncpy(orderedWordArr[i].text, gTableArr[i], sizeof(orderedWordArr[i].text));
-    }
-    return orderedWordArr;
-}
-
-void updateMasterHashTable(GHashTable *hashTable, word *wordArr, int wordNum)
+void updateMasterList(linkedList *list, word *wordArr, int wordNum)
 {
     for (int i = 0; i < wordNum; i++)
     {
-        gpointer gp = g_hash_table_lookup(hashTable, wordArr[i].text);
-        if (gp == NULL)
-        {
-            g_hash_table_insert(hashTable, wordArr[i].text, GINT_TO_POINTER(wordArr[i].occurrencies));
-        }
-        else
-        {
-            g_hash_table_insert(hashTable, wordArr[i].text, GINT_TO_POINTER(wordArr[i].occurrencies + GPOINTER_TO_INT(gp)));
-        }
+        updateListEntry(list, wordArr[i].text, wordArr[i].occurrencies);
     }
 }
-
-/*void merge(word a[], int p, int q, int r, int elemNum)
-{
-    int i, j, k = 0;
-    word b[elemNum];
-    i = p;
-    j = q + 1;
-
-    while (i <= q && j <= r)
-    {
-        if (a[i].occurrencies < a[j].occurrencies)
-        {
-            b[k] = a[i];
-            i++;
-        }
-        else
-        {
-            b[k] = a[j];
-            j++;
-        }
-        k++;
-    }
-
-    while (i <= q)
-    {
-        b[k] = a[i];
-        i++;
-        k++;
-    }
-
-    while (j <= r)
-    {
-        b[k] = a[j];
-        j++;
-        k++;
-    }
-
-    for (k = p; k <= r; k++)
-        a[k] = b[k - p];
-    return;
-} */
 
 void merge(word arr[], int l, int m, int r)
 {

@@ -1,8 +1,8 @@
 #include <stdio.h>
-#include <glib.h>
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include "../lib/fileManagement.h"
@@ -19,7 +19,7 @@ void newFilePartDatatype(MPI_Datatype *datatype)
 
     MPI_Type_get_extent(MPI_DOUBLE, &lowerBound, &extent);
 
-    displ[1] = 2 * extent; //300 * extent;
+    displ[1] = 2 * extent; // 300 * extent;
     blocks[0] = 2;
     types[0] = MPI_DOUBLE;
 
@@ -39,24 +39,24 @@ filePart *checkMessage(MPI_Datatype datatype, int *partNum, MPI_Status status)
     return parts;
 }
 
-fileInfo *getInfo(char *path)
+fileNode *createFileNode(char *path)
 {
     struct stat filestat;
-    fileInfo *info = (fileInfo *)malloc(sizeof(fileInfo));
+    fileNode *node = (fileNode *)malloc(sizeof(fileNode));
 
     if (stat(path, &filestat) != -1)
     {
-        info->filePath = malloc(sizeof(char) * strlen(path) + 1);
-        strncpy(info->filePath, path, strlen(path) + 1);
-        info->fileSize = filestat.st_size;
-        return info;
+        node->path = malloc(sizeof(char) * strlen(path) + 1);
+        strncpy(node->path, path, strlen(path) + 1);
+        node->size = filestat.st_size;
+        return node;
     }
     return NULL;
 }
 
-GList *createFileList(char *filePaths, double *fileSizes)
+linkedFileList *createFileList(char *filePaths, double *allFileSize)
 {
-    GList *fileList = NULL;
+    linkedFileList *fileList = newFileList();
     DIR *dir;
     struct dirent *dirent;
     char absolutePath[300];
@@ -65,7 +65,6 @@ GList *createFileList(char *filePaths, double *fileSizes)
     dir = opendir(filePaths);
     if (dir != NULL)
     {
-        fileInfo *info;
         while ((dirent = readdir(dir)) != NULL)
         {
             if (dirent->d_type != DT_DIR)
@@ -75,9 +74,9 @@ GList *createFileList(char *filePaths, double *fileSizes)
                 strncat(absolutePath, &sep2, 1);
                 strncat(absolutePath, dirent->d_name, strlen(dirent->d_name));
 
-                info = getInfo(absolutePath);
-                *fileSizes += info->fileSize;
-                fileList = g_list_append(fileList, info);
+                fileNode *info = createFileNode(absolutePath);
+                *allFileSize += info->size;
+                addFileListEntry(fileList, info);
             }
         }
         closedir(dir);
@@ -87,16 +86,11 @@ GList *createFileList(char *filePaths, double *fileSizes)
     return fileList;
 }
 
-void freeFileList(GList *list, int elemNum)
+void freeFileList(linkedFileList *list)
 {
-
-    GList *temp = list;
-    for (int i = 0; i < elemNum; i++)
+    for (fileNode *p = list->head; p != NULL; p = p->next)
     {
-        fileInfo *toFree = temp->data;
-        free(toFree->filePath);
-        free(temp->data);
-        temp = temp->next;
+        free(p->path);
     }
-    g_list_free(list);
+    free(list);
 }

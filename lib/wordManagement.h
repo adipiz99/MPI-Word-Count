@@ -2,8 +2,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
-#include <glib.h>
 #include "fileManagement.h"
+#include "linkedList.h"
 #include "mpi.h"
 
 typedef struct word
@@ -20,8 +20,8 @@ void newWordDatatype(MPI_Datatype *datatype);
 
 word *getWordOccurrencies(filePart *parts, int partNum, int *countedWords);
 
-word *getWordArrayFromTable(GHashTable *hashTable, int wordArrLength);
+word *getWordArrayFromList(linkedList *list, int *wordArrLength);
 
-void updateMasterHashTable(GHashTable *hashTable, word *wordArr, int wordNum);
+void updateMasterList(linkedList *list, word *wordArr, int wordNum);
 
 void printOutputCSV(word *wordArr, int wordArrLength);
