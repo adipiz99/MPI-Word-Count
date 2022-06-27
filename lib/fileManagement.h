@@ -10,7 +10,7 @@ typedef struct filePart
 {
     double startPoint;
     double endPoint;
-    char *filePath;
+    char filePath[300];
 } filePart;
 
 void newFilePartDatatype(MPI_Datatype *datatype);

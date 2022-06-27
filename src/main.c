@@ -61,6 +61,7 @@ int main(int argc, char *argv[])
         double notAssignedBytes;
         int currentTask = 0, filePartCounter = 0, masterFilePartCount = 0;
 
+        printf("Found files: %d\n", foundFiles);
         MPI_Request *requests;
         MPI_Alloc_mem(sizeof(MPI_Request) * (tasks - 1), MPI_INFO_NULL, &requests);
         MPI_Alloc_mem(sizeof(filePart) * foundFiles, MPI_INFO_NULL, &(jobs[currentTask]));
@@ -82,47 +83,36 @@ int main(int argc, char *argv[])
                         if (currentTask != MASTER)
                         { //... e se il processo per cui sto calcolando cosa inviare non è il MASTER, allora invio.
                             MPI_Isend(jobs[currentTask], filePartCounter, filePartDatatype, currentTask, 0, MPI_COMM_WORLD, &(requests[currentTask - 1]));
-                            for(int k = 0; k < filePartCounter; k++){
-                                printf("[MASTER] task %d\n\
-                                    \tFilepath: %s\n\
-                                    \tstartPoint: %f\n\
-                                    \tendPoint: %f\n", currentTask, jobs[currentTask][k].filePath, jobs[currentTask][k].startPoint, jobs[currentTask][k].endPoint);fflush(stdout);
-                            }
                         }
                         else
+                        {
                             masterFilePartCount = filePartCounter; // Altrimenti salvo il numero di parti da analizzare
+                        }
                     }
                     bytesToAssign = portion;
                     currentTask++;
                     MPI_Alloc_mem(sizeof(filePart) * foundFiles, MPI_INFO_NULL, &(jobs[currentTask]));
-                    filePartCounter = 0;
+                    filePartCounter = 0;                        
                 }
 
                 // Al MASTER do porzione e resto
                 if (currentTask == MASTER && bytesToAssign == portion && rest > 0)
                     bytesToAssign = portion + rest;
 
-                printf("Comincio a vedere se entra\n");fflush(stdout);
 
                 if (bytesToAssign >= notAssignedBytes)
                 {
-                    printf("entra\n");fflush(stdout);
-                    printf("filename: %s\n", n->path);fflush(stdout);
-                    char *c = getStrFromNode(n);
-                    strncpy(jobs[currentTask][filePartCounter].filePath, c, 300);
-                    //strncpy(jobs[currentTask][filePartCounter].filePath, n->path, 300);
-                    printf("copiato\n");fflush(stdout);
+                    strncpy(jobs[currentTask][filePartCounter].filePath, n->path, 300);
+                    printf("ct %d, fpc %d\n", currentTask, filePartCounter);
                     jobs[currentTask][filePartCounter].startPoint = assignedBytes;
                     jobs[currentTask][filePartCounter].endPoint = assignedBytes + notAssignedBytes;
                     assignedBytes += notAssignedBytes;
                     bytesToAssign -= notAssignedBytes;
                     notAssignedBytes = 0;
                     filePartCounter++;
-                    printf("Fatto\n");fflush(stdout);
                 }
                 else
                 {
-                    printf("non entra\n");fflush(stdout);
                     strncpy(jobs[currentTask][filePartCounter].filePath, n->path, 300);
                     jobs[currentTask][filePartCounter].startPoint = assignedBytes;
                     jobs[currentTask][filePartCounter].endPoint = assignedBytes + bytesToAssign;
@@ -135,17 +125,26 @@ int main(int argc, char *argv[])
             n = n->next;
         }
         // Ultimo invio
-        MPI_Isend(jobs[currentTask], filePartCounter, filePartDatatype, currentTask, 0, MPI_COMM_WORLD, &(requests[currentTask - 1]));
+        if(tasks > 1){
+            MPI_Isend(jobs[currentTask], filePartCounter, filePartDatatype, currentTask, 0, MPI_COMM_WORLD, &(requests[currentTask - 1]));
+        }
 
         printf("[MASTER] Tutti i Job inviati \n");
 
         // Il MASTER esegue il proprio job
+        if(tasks == 1)
+        {
+            masterFilePartCount = filePartCounter;
+        }
         int masterCountedWords = 0;
         filePart *masterFilePart = jobs[MASTER];
+        printf("%s\ni %f f %f\n", masterFilePart[4].filePath, masterFilePart[4].startPoint, masterFilePart[4].endPoint);
+        printf("mfpc %d\n", masterFilePartCount);
         word *masterWordArr = getWordOccurrencies(masterFilePart, masterFilePartCount, &masterCountedWords);
-        for(int i = 0; i < masterCountedWords; i++)
-        printf("word: %s, occ: %d \n", masterWordArr[i].text, masterWordArr[i].occurrencies);fflush(stdout);
-        printf("[MASTER] Array di word generato \n");
+        for (int i = 0; i < masterCountedWords; i++)
+            printf("word: %s, occ: %d \n", masterWordArr[i].text, masterWordArr[i].occurrencies);
+        fflush(stdout);
+        printf("[MASTER] Array di word generato \nParole del MASTER: %d\n", masterCountedWords);
         fflush(stdout);
 
         MPI_Waitall((tasks - 1), requests, MPI_STATUSES_IGNORE);
@@ -172,25 +171,33 @@ int main(int argc, char *argv[])
                 printf("[MASTER] Ricevuto da %d \n", recvStatus.MPI_SOURCE);
                 fflush(stdout);
                 updateMasterList(list, wordArr, count);
-                printf("[MASTER] Aggiornamento hashtable completato per task %d \n", recvStatus.MPI_SOURCE);
+                printf("[MASTER] Aggiornamento lista completato per task %d \n", recvStatus.MPI_SOURCE);
                 fflush(stdout);
             }
             else
             {
-                printf("[MASTER] Aggiornamento hashtable MASTER \n");
+                printf("[MASTER] Aggiornamento lista MASTER \n");
+                fflush(stdout);
                 updateMasterList(list, masterWordArr, masterCountedWords);
                 MPI_Free_mem(masterWordArr);
                 printf("[MASTER] Operazione completata \n");
+                fflush(stdout);
             }
         }
+
         printf("[MASTER] Comincio a ordinare \n");
+        fflush(stdout);
         word *orderedWordArr = getWordArrayFromList(list, &wordArrLength);
         printf("[MASTER] Array completo preso \n");
+        fflush(stdout);
         sortByCount(orderedWordArr, 0, wordArrLength);
         printf("[MASTER] Sorting completato \n");
+        fflush(stdout);
         printf("[MASTER] Creazione file \n");
+        fflush(stdout);
         printOutputCSV(orderedWordArr, wordArrLength);
         printf("[MASTER] File creato \n");
+        fflush(stdout);
 
         for (int i = 0; i < tasks - 1; i++)
         {
@@ -198,20 +205,20 @@ int main(int argc, char *argv[])
         }
         MPI_Free_mem(jobs);
         printf("[MASTER] free jobs \n");
+        fflush(stdout);
 
         freeFileList(fileList);
-
-        MPI_Free_mem(wordArr);
         free(orderedWordArr);
+
+        if(tasks > 1)
+        {
+            MPI_Free_mem(wordArr);
+        }
     }
     else
     {
         int partNum = 0, countedWords = 0;
         filePart *fileList = checkMessage(filePartDatatype, &partNum, status);
-        /*for(int i = 0; i < partNum; i++)
-            printf("[TASK %d] Filepath: %s\n\
-            \tstartPoint: %f\n\
-            \tendPoint: %f\n", myrank, fileList[i].filePath, fileList[i].startPoint, fileList[i].endPoint);*/
         word *wordArr = getWordOccurrencies(fileList, partNum, &countedWords);
         printf("[TASK %d] Occorrenze prese \n", myrank);
         fflush(stdout);
@@ -221,8 +228,8 @@ int main(int argc, char *argv[])
         MPI_Send(wordArr, countedWords, wordDatatype, MASTER, 0, MPI_COMM_WORLD);
         printf("[TASK %d] Send completata \n", myrank);
         fflush(stdout);
-        MPI_Free_mem(fileList);
-        MPI_Free_mem(wordArr);
+        // MPI_Free_mem(fileList);
+        // MPI_Free_mem(wordArr);
     }
 
     MPI_Type_free(&filePartDatatype);

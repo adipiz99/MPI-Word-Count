@@ -114,7 +114,6 @@ word *getWordArrayFromList(linkedList *list, int *wordArrLength)
 {
     word *wordArr;
     MPI_Alloc_mem(sizeof(word) * list->size, MPI_INFO_NULL, &wordArr);
-
     *wordArrLength = list->size;
 
     int i = 0;
@@ -122,11 +121,6 @@ word *getWordArrayFromList(linkedList *list, int *wordArrLength)
     {
         strncpy(wordArr[i].text, n->text, 50);
         wordArr[i].occurrencies = n->occurrencies;
-    }
-
-    while (list->head != NULL)
-    {
-        removeListHead(list);
     }
 
     return wordArr;
@@ -213,9 +207,8 @@ void printOutputCSV(word *wordArr, int wordArrLength)
 {
     FILE *csvFile = fopen("results.csv", "w+");
     fprintf(csvFile, "Word, Occurrencies\n");
-    for (int i = 0; i < wordArrLength; i++)
+    for (int i = (wordArrLength - 1); i >= 0; i--)
     {
-        // printf("%s, %d\n", wordArr[i].text, wordArr[i].occurrencies);fflush(stdout);
         fprintf(csvFile, "%s, %d\n", wordArr[i].text, wordArr[i].occurrencies);
     }
 }

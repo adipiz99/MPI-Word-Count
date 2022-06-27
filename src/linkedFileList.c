@@ -30,13 +30,3 @@ int getFileListSize(linkedFileList *l)
 {
     return l->size;
 }
-
-char *getStrFromNode(fileNode *n){
-    char *str = malloc(sizeof(char)*300);
-    for(int i = 0; i < 300; i++){
-        str[i] = n->path[i];
-        if(str[i] == '\0') return str;
-    }
-    //strncpy(str, n->path, 300);
-    return str;
-}

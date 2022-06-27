@@ -15,4 +15,3 @@ linkedFileList *newFileList();
 int isEmptyFileList(linkedFileList *);
 void addFileListEntry(linkedFileList *, fileNode *);
 int getFileListSize(linkedFileList *);
-char *getStrFromNode(fileNode *);
