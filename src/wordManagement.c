@@ -211,4 +211,7 @@ void printOutputCSV(word *wordArr, int wordArrLength)
     {
         fprintf(csvFile, "%s, %d\n", wordArr[i].text, wordArr[i].occurrencies);
     }
+    char cwd[300];
+    getcwd(cwd, sizeof(cwd));
+    printf("File %s/results.csv generated successfully!\n", cwd);
 }

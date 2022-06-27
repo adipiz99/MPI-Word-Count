@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <unistd.h>
 #include "fileManagement.h"
 #include "linkedList.h"
 #include "mpi.h"
